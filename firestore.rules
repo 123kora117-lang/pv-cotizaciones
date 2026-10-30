@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cotizaciones compartidas únicamente entre cuentas de personal autorizado.
+    match /quotes/{quoteId} {
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && validQuote(request.resource.data);
+    }
+    // Cada usuario solo administra los tokens de sus propios dispositivos.
+    match /users/{userId}/tokens/{tokenId} {
+      allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+  // La función de avisos depende de estos campos.
+  function validQuote(d) {
+    return d.scheduledAt is timestamp
+      && d.cliente is string && d.cliente.size() > 0
+      && (!('remindersSent' in d) || d.remindersSent is list);
+  }
+}

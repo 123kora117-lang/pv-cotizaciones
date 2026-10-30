@@ -1,0 +1,10 @@
+{
+  "name": "pv-cotizaciones-reminders",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "main": "index.js",
+  "scripts": { "start": "node index.js", "test": "node test.js" },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

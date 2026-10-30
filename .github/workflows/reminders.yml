@@ -1,0 +1,41 @@
+name: Avisos de servicios
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# Evita que dos ejecuciones se encimen.
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: reminders/package-lock.json
+      - run: npm ci
+        working-directory: reminders
+      # La llave de la cuenta de servicio vive solo en los secretos del repositorio.
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - run: node index.js
+        working-directory: reminders
+      # GitHub desactiva las tareas programadas tras 60 días sin actividad; esto las mantiene activas.
+      - name: Mantener activa la tarea programada
+        if: github.event_name == 'schedule'
+        run: gh workflow enable reminders.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
