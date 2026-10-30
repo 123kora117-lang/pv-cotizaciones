@@ -48,8 +48,14 @@ $('resetBtn').onclick=async()=>{const email=$('email').value.trim();if(!email){$
 $('logoutBtn').onclick=()=>signOut(auth);$('newBtn').onclick=resetForm;$('saveBtn').onclick=save;$('printBtn').onclick=()=>window.print();
 // Alto útil de una hoja carta con márgenes de 10 mm (A4 es más alta, así que también cabe).
 const PAGE_PX=(11*25.4-20)/25.4*96-4;
-window.addEventListener('beforeprint',()=>{document.body.classList.add('printing');const p=document.querySelector('.preview');p.style.zoom='';const h=p.getBoundingClientRect().height;if(h>PAGE_PX)p.style.zoom=(PAGE_PX/h).toFixed(3)});
-window.addEventListener('afterprint',()=>{document.body.classList.remove('printing');document.querySelector('.preview').style.zoom=''});$('deleteBtn').onclick=async()=>{if(currentId&&confirm('¿Eliminar esta cotización para todos los usuarios?')){try{await deleteDoc(doc(db,'quotes',currentId));resetForm()}catch(e){$('formMsg').textContent='No se pudo eliminar: '+e.message}}};
+// Si hay que reducir, la hoja se ensancha en la misma proporción para seguir ocupando todo el ancho del papel.
+const PAGE_W=7.4*96;
+window.addEventListener('beforeprint',()=>{document.body.classList.add('printing');const p=document.querySelector('.preview');p.style.zoom='';p.style.width='';
+const heightAt=z=>{p.style.width=(PAGE_W/z)+'px';return p.offsetHeight};
+if(heightAt(1)<=PAGE_PX){p.style.width='';return}
+let lo=0.4,hi=1;for(let i=0;i<10;i++){const z=(lo+hi)/2;if(heightAt(z)*z<=PAGE_PX)lo=z;else hi=z}
+heightAt(lo);p.style.zoom=lo.toFixed(3)});
+window.addEventListener('afterprint',()=>{document.body.classList.remove('printing');const p=document.querySelector('.preview');p.style.zoom='';p.style.width=''});$('deleteBtn').onclick=async()=>{if(currentId&&confirm('¿Eliminar esta cotización para todos los usuarios?')){try{await deleteDoc(doc(db,'quotes',currentId));resetForm()}catch(e){$('formMsg').textContent='No se pudo eliminar: '+e.message}}};
 // Registra (o actualiza) el token de este navegador. El id del documento es el propio token para no duplicar dispositivos.
 async function enablePush(){if(!window.isSecureContext||!('serviceWorker'in navigator)||!('Notification'in window)||!(await isSupported()))throw Error('Este navegador no admite notificaciones web. En iPhone/iPad agrega el sitio a la pantalla de inicio (iOS 16.4 o superior) y ábrelo desde ahí.');const perm=await Notification.requestPermission();if(perm!=='granted')throw Error('Permiso de notificaciones no concedido.');const reg=await navigator.serviceWorker.register('/firebase-messaging-sw.js');await navigator.serviceWorker.ready;const messaging=getMessaging(appFirebase);const token=await getToken(messaging,{vapidKey:VAPID_KEY,serviceWorkerRegistration:reg});if(!token)throw Error('No se pudo registrar este dispositivo.');await setDoc(doc(db,'users',auth.currentUser.uid,'tokens',token),{token,updatedAt:serverTimestamp(),device:navigator.userAgent});if(!pushReady){pushReady=true;onMessage(messaging,p=>{if(p.notification)reg.showNotification(p.notification.title,{body:p.notification.body,tag:'pv-foreground'})})}}
 $('notifyBtn').onclick=async()=>{try{await enablePush();$('syncMsg').textContent='Avisos activados en este dispositivo.'}catch(e){$('syncMsg').textContent='Avisos: '+e.message}};
